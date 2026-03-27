@@ -10,6 +10,7 @@ import (
 var logMu sync.Mutex
 
 func LogLLM(entry *LLMLogEntry) error {
+	// Guard concurrent writes in case the project grows beyond a single CLI loop later.
 	logMu.Lock()
 	defer logMu.Unlock()
 
@@ -17,6 +18,7 @@ func LogLLM(entry *LLMLogEntry) error {
 		return err
 	}
 
+	// JSONL keeps one record per line, which is easy to append and analyze later.
 	file, err := os.OpenFile(filepath.Clean("logs/llm_logs.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
