@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -18,12 +19,44 @@ func LogLLM(entry *LLMLogEntry) error {
 		return err
 	}
 
-	// JSONL keeps one record per line, which is easy to append and analyze later.
-	file, err := os.OpenFile(filepath.Clean("logs/llm_logs.jsonl"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	logPath := filepath.Clean("logs/llm_logs.json")
+
+	entries, err := readLogEntries(logPath)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	return json.NewEncoder(file).Encode(entry)
+	entries = append(entries, *entry)
+
+	payload, err := json.MarshalIndent(entries, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	if err := os.WriteFile(logPath, append(payload, '\n'), 0644); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func readLogEntries(path string) ([]LLMLogEntry, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return []LLMLogEntry{}, nil
+		}
+		return nil, err
+	}
+
+	if len(data) == 0 {
+		return []LLMLogEntry{}, nil
+	}
+
+	var entries []LLMLogEntry
+	if err := json.Unmarshal(data, &entries); err != nil {
+		return nil, err
+	}
+
+	return entries, nil
 }

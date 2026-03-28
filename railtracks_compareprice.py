@@ -9,8 +9,8 @@ from pydantic import BaseModel
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
-LLM_LOG_PATH = PROJECT_ROOT / "logs" / "llm_logs.jsonl"
-COMPARISON_LOG_PATH = PROJECT_ROOT / "logs" / "llm_comparisons.jsonl"
+LLM_LOG_PATH = PROJECT_ROOT / "logs" / "llm_logs.json"
+COMPARISON_LOG_PATH = PROJECT_ROOT / "logs" / "llm_comparisons.json"
 
 
 class ProviderRun(BaseModel):
@@ -42,6 +42,7 @@ def extract_response(stdout: str) -> str:
     response_text = stdout.split(marker, 1)[1]
     stop_markers = [
         "Enter prompt (or type 'exit'):",
+        "Do you have a receipt to scan? (yes/no or type 'exit'):",
         "Goodbye.",
     ]
     stop_index = len(response_text)
@@ -61,20 +62,27 @@ def extract_response(stdout: str) -> str:
     return "\n".join(response_lines).strip()
 
 
-def count_log_lines(path: Path) -> int:
+def read_log_entries(path: Path) -> list[dict]:
     if not path.exists():
-        return 0
+        return []
 
     with path.open("r", encoding="utf-8") as file:
-        return sum(1 for _ in file)
+        content = file.read().strip()
+
+    if not content:
+        return []
+
+    entries = json.loads(content)
+    if not isinstance(entries, list):
+        raise RuntimeError(f"Expected {path} to contain a JSON array.")
+    return entries
 
 
-def read_log_entry(path: Path, line_index: int) -> dict:
-    with path.open("r", encoding="utf-8") as file:
-        for current_index, line in enumerate(file):
-            if current_index == line_index:
-                return json.loads(line)
-    raise RuntimeError(f"Failed to read log entry {line_index} from {path}.")
+def write_log_entries(path: Path, entries: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as file:
+        json.dump(entries, file, indent=2)
+        file.write("\n")
 
 
 def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
@@ -84,11 +92,11 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
 
     print(f"[{display_name}] Starting provider run...")
 
-    before_count = count_log_lines(LLM_LOG_PATH)
+    before_count = len(read_log_entries(LLM_LOG_PATH))
     # Feed one prompt plus "exit" so the existing Go CLI can run unchanged.
     completed = subprocess.run(
         ["go", "run", "."],
-        input=f"{prompt}\nexit\n",
+        input=f"no\n{prompt}\nexit\n",
         cwd=PROJECT_ROOT,
         env=env,
         text=True,
@@ -103,11 +111,12 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         print(f"[{display_name}] Failed.")
         raise RuntimeError(details)
 
-    after_count = count_log_lines(LLM_LOG_PATH)
+    log_entries = read_log_entries(LLM_LOG_PATH)
+    after_count = len(log_entries)
     if after_count <= before_count:
         stderr = completed.stderr.strip()
         stdout = completed.stdout.strip()
-        details = stderr or stdout or f"No new llm_logs.jsonl entry was written for provider {provider}."
+        details = stderr or stdout or f"No new llm_logs.json entry was written for provider {provider}."
         print(f"[{display_name}] Failed before logging.")
         raise RuntimeError(f"{provider} run did not produce a log entry. Go CLI output: {details}")
 
@@ -116,7 +125,7 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         raise RuntimeError(f"No response was captured from the Go CLI output for provider {provider}.")
 
     # Read the newest log row so Railtracks can compare provider metrics.
-    log_entry = read_log_entry(LLM_LOG_PATH, after_count - 1)
+    log_entry = log_entries[-1]
     print(
         f"[{display_name}] Completed. "
         f"latency={log_entry['llm_latency_ms']} ms, "
@@ -185,7 +194,6 @@ def pick_success(left_name: str, left_value: bool, right_name: str, right_value:
 
 
 def log_comparison(prompt: str, clod_result: ProviderRun, openrouter_result: ProviderRun, summary: str) -> None:
-    COMPARISON_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     # Persist a lightweight comparison record so repeated runs can be reviewed later.
     entry = {
         "prompt": prompt,
@@ -206,8 +214,9 @@ def log_comparison(prompt: str, clod_result: ProviderRun, openrouter_result: Pro
         "summary": summary,
     }
 
-    with COMPARISON_LOG_PATH.open("a", encoding="utf-8") as file:
-        file.write(json.dumps(entry) + "\n")
+    entries = read_log_entries(COMPARISON_LOG_PATH)
+    entries.append(entry)
+    write_log_entries(COMPARISON_LOG_PATH, entries)
 
 
 @rt.function_node
@@ -268,9 +277,25 @@ def main() -> None:
 
     print("comparePrice Railtracks comparison wrapper")
     print("This runs CLOD and OpenRouter as separate tracked nodes, then compares their metrics.")
+    print("The current scan step is a placeholder. If you choose yes, the app will tell you scanning is not supported yet.")
     print("Type a grocery-related prompt, or type 'exit' to quit.")
 
     while True:
+        scan_choice = input("Do you have a receipt to scan? (yes/no or type 'exit'): ").strip().lower()
+        if not scan_choice:
+            print("Please enter yes, no, or exit.")
+            continue
+
+        if scan_choice == "exit":
+            print("Goodbye.")
+            return
+
+        if scan_choice in {"yes", "y"}:
+            print("Receipt scanning is not supported yet in this app. Please add the receipt JSON to the output folder for now.")
+        elif scan_choice not in {"no", "n"}:
+            print("Please enter yes, no, or exit.")
+            continue
+
         prompt = input("Enter prompt: ").strip()
         if not prompt:
             print("Prompt cannot be empty.")

@@ -33,6 +33,31 @@ func main() {
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
+		fmt.Print("Do you have a receipt to scan? (yes/no or type 'exit'): ")
+		scanChoice, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to read scan choice: %v\n", err)
+			os.Exit(1)
+		}
+
+		scanChoice = strings.TrimSpace(scanChoice)
+		if scanChoice == "" {
+			fmt.Println("Please enter yes, no, or exit.")
+			continue
+		}
+
+		if strings.EqualFold(scanChoice, "exit") {
+			fmt.Println("Goodbye.")
+			return
+		}
+
+		if strings.EqualFold(scanChoice, "yes") || strings.EqualFold(scanChoice, "y") {
+			fmt.Println("Receipt scanning is not supported yet in this app. Please add the receipt JSON to the output folder for now.")
+		} else if !(strings.EqualFold(scanChoice, "no") || strings.EqualFold(scanChoice, "n")) {
+			fmt.Println("Please enter yes, no, or exit.")
+			continue
+		}
+
 		fmt.Print("Enter prompt (or type 'exit'): ")
 		prompt, err := reader.ReadString('\n')
 		if err != nil {

@@ -12,7 +12,7 @@ Minimal Go CLI for the incubation stage. It accepts a prompt, sends it to OpenRo
 ```bash
 export LLM_PROVIDER="openrouter"
 export OPENROUTER_API_KEY="your_api_key_here"
-export OPENROUTER_MODEL="qwen/qwen3-next-80b-a3b-instruct:free"
+export OPENROUTER_MODEL="qwen/qwen3-235b-a22b-2507"
 export OPENROUTER_FALLBACK_MODEL="deepseek/deepseek-chat-v3-0324:free"
 go run .
 ```
@@ -20,7 +20,7 @@ go run .
 ```bash
 export LLM_PROVIDER="clod"
 export CLOD_API_KEY="your_api_key_here"
-export CLOD_MODEL="DeepSeek V3"
+export CLOD_MODEL="Qwen 3 235B A22B Instruct 2507 TPUT"
 export CLOD_FALLBACK_MODEL="Llama 3.1 8B"
 go run .
 ```
@@ -37,7 +37,7 @@ To run the app with debug logging enabled:
 ```bash
 export LLM_PROVIDER="clod"
 export CLOD_API_KEY="your_api_key_here"
-export CLOD_MODEL="DeepSeek V3"
+export CLOD_MODEL="Qwen 3 235B A22B Instruct 2507 TPUT"
 export LOG_LEVEL="DEBUG"
 go run .
 ```
@@ -65,7 +65,7 @@ For OpenRouter, the code continues to use their chat completions endpoint:
 
 - OpenRouter API endpoint used in code: `https://openrouter.ai/api/v1/chat/completions`
 
-Note: `CLOD_MODEL="DeepSeek V3"` is a project default we chose from examples in the CLOD docs. It is not presented in the docs as the platform-wide default model.
+Note: `CLOD_MODEL="Qwen 3 235B A22B Instruct 2507 TPUT"` is the current project default chosen for this comparison setup. You can still override it with any CLOD-supported model.
 
 ## Model
 
@@ -74,7 +74,7 @@ For OpenRouter, the project reads the model from `OPENROUTER_MODEL`.
 If that variable is not set, it defaults to:
 
 ```text
-openrouter/free
+qwen/qwen3-235b-a22b-2507
 ```
 
 For CLOD, the project reads the model from `CLOD_MODEL`.
@@ -82,7 +82,7 @@ For CLOD, the project reads the model from `CLOD_MODEL`.
 If that variable is not set, it defaults to:
 
 ```text
-DeepSeek V3
+Qwen 3 235B A22B Instruct 2507 TPUT
 ```
 
 ## Guardrails
@@ -120,6 +120,7 @@ Today, the price-comparison analysis is performed by the LLM itself.
 The Go app currently sends:
 
 - a system prompt with shopping and receipt-comparison instructions
+- all JSON receipt files found in `output/`
 - the user's prompt
 
 The model then decides whether a cheaper price or a clearly similar cheaper item exists based on the receipt data included in the prompt/context it receives.
@@ -127,13 +128,16 @@ The model then decides whether a cheaper price or a clearly similar cheaper item
 ## Usage
 
 ```text
+Do you have a receipt to scan? (yes/no or type 'exit'): no
 Enter prompt (or type 'exit'): Summarize the cheapest grocery option for eggs.
 
 Response:
 ...
 ```
 
-Type `exit` to stop the program.
+If the user selects `yes`, the current CLI shows a placeholder message explaining that live receipt scanning is not supported yet and asks the user to place receipt JSON in `output/` for now.
+
+Type `exit` at either prompt to stop the program.
 
 When `LLM_PROVIDER="both"`, the CLI prints:
 
@@ -155,7 +159,7 @@ When `LLM_PROVIDER="both"`, the CLI prints:
 
 ## Logging
 
-Each successful request is appended to `logs/llm_logs.jsonl` with:
+Each successful request is appended to `logs/llm_logs.json` with:
 
 - `llm_provider`
 - `llm_latency_ms`
@@ -172,7 +176,7 @@ Example:
 
 ```json
 {
-  "llm_provider": "DeepSeek V3",
+  "llm_provider": "Qwen 3 235B A22B Instruct 2507 TPUT",
   "llm_latency_ms": 2100,
   "llm_input_tokens": 800,
   "llm_output_tokens": 200,
@@ -191,7 +195,7 @@ Full example:
 ```bash
 export LLM_PROVIDER="openrouter"
 export OPENROUTER_API_KEY="your_api_key_here"
-export OPENROUTER_MODEL="openrouter/free"
+export OPENROUTER_MODEL="qwen/qwen3-235b-a22b-2507"
 export LOG_LEVEL="DEBUG"
 go run .
 ```
@@ -226,7 +230,7 @@ The wrapper sends the same prompt into the Go CLI twice, once with `LLM_PROVIDER
 - `run_openrouter`
 - `compare_metrics`
 
-The Go app still appends usage entries to `logs/llm_logs.jsonl` using the same project log schema:
+The Go app still appends usage entries to `logs/llm_logs.json` using the same project log schema:
 
 - `llm_provider`
 - `llm_latency_ms`
@@ -239,7 +243,7 @@ The wrapper enables `save_state=True`, so local runs can appear in the `.railtra
 
 The comparison wrapper also writes the combined comparison result to:
 
-- `logs/llm_comparisons.jsonl`
+- `logs/llm_comparisons.json`
 
 Each comparison record includes the prompt, both providers' metrics, and the terminal summary text such as:
 
