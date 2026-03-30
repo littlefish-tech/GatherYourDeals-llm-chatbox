@@ -6,6 +6,23 @@ Minimal Go CLI for the incubation stage. It accepts a prompt, sends it to OpenRo
 
 - Go 1.22+
 - An OpenRouter API key with credit available, or a CLOD API key
+- Python 3.x for the Railtracks wrapper and visualization flow
+
+## Python Environment
+
+Create a virtual environment:
+
+```bash
+python3 -m venv venv
+```
+
+Activate the virtual environment:
+
+```bash
+source venv/bin/activate
+```
+
+After activation, you can install Python dependencies such as Railtracks inside the virtual environment.
 
 ## Setup
 
@@ -49,6 +66,25 @@ This project reads `LLM_PROVIDER` to decide which backend to call.
 - `openrouter` is the default when `LLM_PROVIDER` is unset
 - `clod` uses CLOD's OpenAI-compatible endpoint at `https://api.clod.io/v1/chat/completions`
 - `both` sends the same prompt to both CLOD and OpenRouter, then prints a side-by-side comparison
+
+## What Are OpenRouter and CLOD
+
+OpenRouter is a model-routing platform that provides access to many LLMs through a single API surface. It can route the same model family through different upstream providers depending on availability and platform behavior.
+
+CLOD is an AI model platform that exposes OpenAI-compatible APIs and hosts selectable models directly on its own platform.
+
+This project uses both because they are practical ways to access large instruction models without building a custom model-serving stack.
+
+## Why We Chose Them
+
+OpenRouter and CLOD were selected because:
+
+- both are easy to integrate with an OpenAI-compatible chat completions API
+- both allow fast experimentation with large instruction models
+- both are suitable for comparing latency, token usage, and response quality in the same app
+- both let the team evaluate realistic deployment options for the grocery price comparison assistant
+
+Using these two platforms makes the project comparison more useful from a product perspective, because the result is not only about model quality but also about how each serving platform behaves in practice.
 
 ## API References
 
@@ -157,6 +193,8 @@ When `LLM_PROVIDER="both"`, the CLI prints:
 - avoids hallucinating unsupported prices or receipt data
 - stays in the compare-price assistant role
 
+These red-team prompts should be treated as part of the LLM test-case evaluation plan, not just as optional examples. They help the team evaluate whether the model remains aligned with the shopping-assistant task, avoids unsafe role switching, and resists prompt injection or unsupported price fabrication.
+
 ## Logging
 
 Each successful request is appended to `logs/llm_logs.json` with:
@@ -206,7 +244,7 @@ If you want the Railtracks dashboard to show a provider comparison for the real 
 Install Railtracks with CLI support:
 
 ```bash
-python -m pip install "railtracks[cli]"
+python3 -m pip install "railtracks[cli]"
 ```
 
 Terminal 1: start the Railtracks dashboard
@@ -266,9 +304,61 @@ Higher success score: tie
 If the `railtracks` command is not on your shell path, try:
 
 ```bash
-python -m railtracks init
-python -m railtracks viz
+./venv/bin/railtracks init
+./venv/bin/railtracks viz
 ```
+
+## Batch Experiments
+
+For repeatable LLM test-case evaluation, the project also includes a separate batch runner:
+
+```bash
+python3 run_llm_experiments.py
+```
+
+By default, it reads prompts from:
+
+- `experiment_prompts.txt`
+
+The script:
+
+- runs the same prompt set across CLOD and OpenRouter
+- keeps the existing per-request logs as raw data
+- appends raw provider-pair results to `logs/llm_comparisons.json`
+- writes an aggregated summary to `logs/llm_summary.json`
+- appends batch summaries to `logs/llm_batch_summaries.json`
+
+The summary includes:
+
+- average latency
+- average input tokens
+- average output tokens
+- minimum and maximum values
+- `p50`
+
+Cost should be tracked separately at the batch or provider level rather than per prompt when the provider dashboards do not expose prompt identity. In that case, the recommended cost metrics are:
+
+- total cost for the batch per provider
+- average cost per request for the batch per provider
+
+For small sample sizes, `avg`, `min`, `max`, and `p50` are generally more informative than higher percentiles.
+
+The recommended workflow is to keep a fixed baseline prompt set and run that same set each week. This makes the weekly provider comparison fairer because changes in latency, token usage, cost, and answer quality are less likely to be caused by differences in prompt wording. If the team wants to try new prompts, those can be added as a separate exploratory set rather than replacing the baseline batch.
+
+With the current default prompt file, the batch size is:
+
+- 5 prompts
+- 10 total provider requests
+
+This is because each prompt is sent once to CLOD and once to OpenRouter.
+
+To summarize existing comparison logs without running new requests:
+
+```bash
+python3 run_llm_experiments.py --summarize-only
+```
+
+Note: for small sample sizes, percentiles above `p95` are noisy, and `p99_9` is only meaningful with many runs.
 
 Reference docs used here:
 
