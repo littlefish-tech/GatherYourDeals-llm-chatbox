@@ -1,0 +1,11 @@
+# One prompt per line. Lines starting with # are ignored.
+I want to buy some milk, can you tell me the store with the lowest price
+i want to buy carrot, can you tell me the store with the lowest price
+Where is the cheapest egg price in the receipts?
+Compare milk prices across the receipts and recommend the better option.
+What is the best price for bananas in the available receipt history?
+Which store has the lowest price for bread in the receipts?
+Compare the prices of apples across all receipts and tell me the cheapest store.
+I need to buy yogurt. Which receipt shows the best price?
+Find the cheapest price for chicken from the uploaded receipt history.
+Based on the receipts, which store offers the best total value for buying milk and eggs together?
