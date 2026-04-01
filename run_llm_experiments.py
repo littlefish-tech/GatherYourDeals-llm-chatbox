@@ -55,7 +55,6 @@ def extract_response(stdout: str) -> str:
     response_text = stdout.split(marker, 1)[1]
     stop_markers = [
         "Enter prompt (or type 'exit'):",
-        "Do you have a receipt to scan? (yes/no or type 'exit'):",
         "Goodbye.",
     ]
 
@@ -72,6 +71,19 @@ def extract_response(stdout: str) -> str:
     return "\n".join(lines).strip()
 
 
+def build_failed_provider_run(provider: str, details: str, response: str = "") -> ProviderRun:
+    fallback_response = response.strip() or details.strip() or f"{provider} request failed."
+    return ProviderRun(
+        llm_provider=f"{provider}-failed",
+        llm_latency_ms=0,
+        llm_input_tokens=0,
+        llm_output_tokens=0,
+        llm_success=False,
+        response=fallback_response,
+        provider_name=provider,
+    )
+
+
 def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
     env = dict(os.environ)
     env["LLM_PROVIDER"] = provider
@@ -82,7 +94,7 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
     before_count = len(read_json_array(LLM_LOG_PATH))
     completed = subprocess.run(
         ["go", "run", "."],
-        input=f"no\n{prompt}\nexit\n",
+        input=f"{prompt}\nexit\n",
         cwd=PROJECT_ROOT,
         env=env,
         text=True,
@@ -95,7 +107,7 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         stdout = completed.stdout.strip()
         details = stderr or stdout or f"go run exited with code {completed.returncode}"
         print(f"[{display_name}] Failed.")
-        raise RuntimeError(details)
+        return build_failed_provider_run(provider, details, extract_response(stdout))
 
     log_entries = read_json_array(LLM_LOG_PATH)
     if len(log_entries) <= before_count:
@@ -103,11 +115,12 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         stdout = completed.stdout.strip()
         details = stderr or stdout or f"No new llm_logs.json entry was written for provider {provider}."
         print(f"[{display_name}] Failed before logging.")
-        raise RuntimeError(f"{provider} run did not produce a log entry. Go CLI output: {details}")
+        return build_failed_provider_run(provider, details, extract_response(stdout))
 
     response = extract_response(completed.stdout)
     if not response:
-        raise RuntimeError(f"No response was captured from the Go CLI output for provider {provider}.")
+        print(f"[{display_name}] Completed without a captured response.")
+        response = f"{provider} completed without a captured response."
 
     log_entry = log_entries[-1]
     print(
@@ -130,7 +143,11 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
 
 
 def build_comparison_summary(clod_result: ProviderRun, openrouter_result: ProviderRun) -> str:
-    def pick_lower(left_name: str, left_value: int, right_name: str, right_value: int) -> str:
+    def pick_lower(left_name: str, left_value: int, left_success: bool, right_name: str, right_value: int, right_success: bool) -> str:
+        if left_success != right_success:
+            return left_name if left_success else right_name
+        if not left_success and not right_success:
+            return "n/a"
         if left_value == right_value:
             return "tie"
         return left_name if left_value < right_value else right_name
@@ -144,13 +161,13 @@ def build_comparison_summary(clod_result: ProviderRun, openrouter_result: Provid
         "Comparison:",
         f"CLOD latency: {clod_result.llm_latency_ms} ms",
         f"OpenRouter latency: {openrouter_result.llm_latency_ms} ms",
-        f"Faster provider: {pick_lower('clod', clod_result.llm_latency_ms, 'openrouter', openrouter_result.llm_latency_ms)}",
+        f"Faster provider: {pick_lower('clod', clod_result.llm_latency_ms, clod_result.llm_success, 'openrouter', openrouter_result.llm_latency_ms, openrouter_result.llm_success)}",
         f"CLOD input tokens: {clod_result.llm_input_tokens}",
         f"OpenRouter input tokens: {openrouter_result.llm_input_tokens}",
-        f"Lower input tokens: {pick_lower('clod', clod_result.llm_input_tokens, 'openrouter', openrouter_result.llm_input_tokens)}",
+        f"Lower input tokens: {pick_lower('clod', clod_result.llm_input_tokens, clod_result.llm_success, 'openrouter', openrouter_result.llm_input_tokens, openrouter_result.llm_success)}",
         f"CLOD output tokens: {clod_result.llm_output_tokens}",
         f"OpenRouter output tokens: {openrouter_result.llm_output_tokens}",
-        f"Lower output tokens: {pick_lower('clod', clod_result.llm_output_tokens, 'openrouter', openrouter_result.llm_output_tokens)}",
+        f"Lower output tokens: {pick_lower('clod', clod_result.llm_output_tokens, clod_result.llm_success, 'openrouter', openrouter_result.llm_output_tokens, openrouter_result.llm_success)}",
         f"CLOD success: {str(clod_result.llm_success).lower()}",
         f"OpenRouter success: {str(openrouter_result.llm_success).lower()}",
         f"Higher success score: {pick_success('clod', clod_result.llm_success, 'openrouter', openrouter_result.llm_success)}",

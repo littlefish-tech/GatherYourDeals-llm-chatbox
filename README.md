@@ -164,16 +164,13 @@ The model then decides whether a cheaper price or a clearly similar cheaper item
 ## Usage
 
 ```text
-Do you have a receipt to scan? (yes/no or type 'exit'): no
 Enter prompt (or type 'exit'): Summarize the cheapest grocery option for eggs.
 
 Response:
 ...
 ```
 
-If the user selects `yes`, the current CLI shows a placeholder message explaining that live receipt scanning is not supported yet and asks the user to place receipt JSON in `output/` for now.
-
-Type `exit` at either prompt to stop the program.
+Type `exit` at the prompt to stop the program.
 
 When `LLM_PROVIDER="both"`, the CLI prints:
 
@@ -347,8 +344,8 @@ The recommended workflow is to keep a fixed baseline prompt set and run that sam
 
 With the current default prompt file, the batch size is:
 
-- 5 prompts
-- 10 total provider requests
+- 10 prompts
+- 200 total provider requests
 
 This is because each prompt is sent once to CLOD and once to OpenRouter.
 

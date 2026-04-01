@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import os
@@ -11,6 +12,7 @@ from pydantic import BaseModel
 PROJECT_ROOT = Path(__file__).resolve().parent
 LLM_LOG_PATH = PROJECT_ROOT / "logs" / "llm_logs.json"
 COMPARISON_LOG_PATH = PROJECT_ROOT / "logs" / "llm_comparisons.json"
+DEFAULT_PROMPTS_PATH = PROJECT_ROOT / "experiment_prompts.txt"
 
 
 class ProviderRun(BaseModel):
@@ -42,7 +44,6 @@ def extract_response(stdout: str) -> str:
     response_text = stdout.split(marker, 1)[1]
     stop_markers = [
         "Enter prompt (or type 'exit'):",
-        "Do you have a receipt to scan? (yes/no or type 'exit'):",
         "Goodbye.",
     ]
     stop_index = len(response_text)
@@ -85,6 +86,32 @@ def write_log_entries(path: Path, entries: list[dict]) -> None:
         file.write("\n")
 
 
+def load_prompts(path: Path) -> list[str]:
+    prompts = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        prompts.append(line)
+
+    if not prompts:
+        raise RuntimeError(f"No prompts found in {path}.")
+    return prompts
+
+
+def build_failed_provider_run(provider: str, details: str, response: str = "") -> ProviderRun:
+    fallback_response = response.strip() or details.strip() or f"{provider} request failed."
+    return ProviderRun(
+        llm_provider=f"{provider}-failed",
+        llm_latency_ms=0,
+        llm_input_tokens=0,
+        llm_output_tokens=0,
+        llm_success=False,
+        response=fallback_response,
+        provider_name=provider,
+    )
+
+
 def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
     env = dict(os.environ)
     env["LLM_PROVIDER"] = provider
@@ -96,7 +123,7 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
     # Feed one prompt plus "exit" so the existing Go CLI can run unchanged.
     completed = subprocess.run(
         ["go", "run", "."],
-        input=f"no\n{prompt}\nexit\n",
+        input=f"{prompt}\nexit\n",
         cwd=PROJECT_ROOT,
         env=env,
         text=True,
@@ -109,7 +136,7 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         stdout = completed.stdout.strip()
         details = stderr or stdout or f"go run exited with code {completed.returncode}"
         print(f"[{display_name}] Failed.")
-        raise RuntimeError(details)
+        return build_failed_provider_run(provider, details, extract_response(stdout))
 
     log_entries = read_log_entries(LLM_LOG_PATH)
     after_count = len(log_entries)
@@ -118,11 +145,12 @@ def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
         stdout = completed.stdout.strip()
         details = stderr or stdout or f"No new llm_logs.json entry was written for provider {provider}."
         print(f"[{display_name}] Failed before logging.")
-        raise RuntimeError(f"{provider} run did not produce a log entry. Go CLI output: {details}")
+        return build_failed_provider_run(provider, details, extract_response(stdout))
 
     response = extract_response(completed.stdout)
     if not response:
-        raise RuntimeError(f"No response was captured from the Go CLI output for provider {provider}.")
+        print(f"[{display_name}] Completed without a captured response.")
+        response = f"{provider} completed without a captured response."
 
     # Read the newest log row so Railtracks can compare provider metrics.
     log_entry = log_entries[-1]
@@ -149,13 +177,13 @@ def build_comparison_summary(clod_result: ProviderRun, openrouter_result: Provid
         "Comparison:",
         f"CLOD latency: {clod_result.llm_latency_ms} ms",
         f"OpenRouter latency: {openrouter_result.llm_latency_ms} ms",
-        f"Faster provider: {pick_lower('clod', clod_result.llm_latency_ms, 'openrouter', openrouter_result.llm_latency_ms)}",
+        f"Faster provider: {pick_lower('clod', clod_result.llm_latency_ms, clod_result.llm_success, 'openrouter', openrouter_result.llm_latency_ms, openrouter_result.llm_success)}",
         f"CLOD input tokens: {clod_result.llm_input_tokens}",
         f"OpenRouter input tokens: {openrouter_result.llm_input_tokens}",
-        f"Lower input tokens: {pick_lower('clod', clod_result.llm_input_tokens, 'openrouter', openrouter_result.llm_input_tokens)}",
+        f"Lower input tokens: {pick_lower('clod', clod_result.llm_input_tokens, clod_result.llm_success, 'openrouter', openrouter_result.llm_input_tokens, openrouter_result.llm_success)}",
         f"CLOD output tokens: {clod_result.llm_output_tokens}",
         f"OpenRouter output tokens: {openrouter_result.llm_output_tokens}",
-        f"Lower output tokens: {pick_lower('clod', clod_result.llm_output_tokens, 'openrouter', openrouter_result.llm_output_tokens)}",
+        f"Lower output tokens: {pick_lower('clod', clod_result.llm_output_tokens, clod_result.llm_success, 'openrouter', openrouter_result.llm_output_tokens, openrouter_result.llm_success)}",
         f"CLOD success: {str(clod_result.llm_success).lower()}",
         f"OpenRouter success: {str(openrouter_result.llm_success).lower()}",
         f"Higher success score: {pick_success('clod', clod_result.llm_success, 'openrouter', openrouter_result.llm_success)}",
@@ -177,7 +205,11 @@ def build_terminal_output(comparison: ComparisonResult) -> str:
     return "\n".join(sections)
 
 
-def pick_lower(left_name: str, left_value: int, right_name: str, right_value: int) -> str:
+def pick_lower(left_name: str, left_value: int, left_success: bool, right_name: str, right_value: int, right_success: bool) -> str:
+    if left_success != right_success:
+        return left_name if left_success else right_name
+    if not left_success and not right_success:
+        return "n/a"
     if left_value == right_value:
         return "tie"
     if left_value < right_value:
@@ -269,6 +301,18 @@ async def compareprice_flow(prompt: str) -> str:
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description="Run Railtracks provider comparison interactively or from a prompt file.")
+    parser.add_argument("--prompts", type=Path, help="Path to a text file with one prompt per line.")
+    parser.add_argument(
+        "--use-default-prompts",
+        action="store_true",
+        help=f"Use the default prompt file at {DEFAULT_PROMPTS_PATH.name}.",
+    )
+    args = parser.parse_args()
+
+    if args.prompts and args.use_default_prompts:
+        raise RuntimeError("Use either --prompts or --use-default-prompts, not both.")
+
     rt.set_config(save_state=True)
     flow = rt.Flow(
         name="comparePrice Provider Comparison",
@@ -277,25 +321,36 @@ def main() -> None:
 
     print("comparePrice Railtracks comparison wrapper")
     print("This runs CLOD and OpenRouter as separate tracked nodes, then compares their metrics.")
-    print("The current scan step is a placeholder. If you choose yes, the app will tell you scanning is not supported yet.")
+    prompt_path = args.prompts
+    if args.use_default_prompts:
+        prompt_path = DEFAULT_PROMPTS_PATH
+
+    if prompt_path is not None:
+        if not prompt_path.exists():
+            raise RuntimeError(f"Prompt file not found: {prompt_path}")
+
+        prompts = load_prompts(prompt_path)
+        print(f"Running {len(prompts)} prompts from {prompt_path}...")
+
+        for index, prompt in enumerate(prompts, start=1):
+            print()
+            print(f"Prompt {index}/{len(prompts)}: {prompt}")
+            try:
+                result = asyncio.run(flow.ainvoke(prompt))
+            except Exception as err:
+                print()
+                print(f"Comparison run failed: {err}")
+                print("This session will usually appear as a partial trace in Railtracks.")
+                print()
+                continue
+            print()
+            print(getattr(result, "text", str(result)))
+            print()
+        return
+
     print("Type a grocery-related prompt, or type 'exit' to quit.")
 
     while True:
-        scan_choice = input("Do you have a receipt to scan? (yes/no or type 'exit'): ").strip().lower()
-        if not scan_choice:
-            print("Please enter yes, no, or exit.")
-            continue
-
-        if scan_choice == "exit":
-            print("Goodbye.")
-            return
-
-        if scan_choice in {"yes", "y"}:
-            print("Receipt scanning is not supported yet in this app. Please add the receipt JSON to the output folder for now.")
-        elif scan_choice not in {"no", "n"}:
-            print("Please enter yes, no, or exit.")
-            continue
-
         prompt = input("Enter prompt: ").strip()
         if not prompt:
             print("Prompt cannot be empty.")
