@@ -147,7 +147,14 @@ export OPENROUTER_FALLBACK_MODEL="deepseek/deepseek-chat-v3-0324:free"
 export CLOD_FALLBACK_MODEL="Llama 3.1 8B"
 ```
 
-When set, the CLI will try that fallback model after repeated `429` failures from the primary model.
+If you do not set these variables, the CLI still uses built-in fallback defaults:
+
+```text
+OpenRouter fallback: deepseek/deepseek-chat-v3-0324:free
+CLOD fallback: Llama 3.1 8B
+```
+
+After repeated `429` failures from the primary model, the CLI automatically retries against the fallback model.
 
 ## Current Analysis Flow
 

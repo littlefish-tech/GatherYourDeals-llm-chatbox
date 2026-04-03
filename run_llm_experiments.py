@@ -1,5 +1,7 @@
 import argparse
 import json
+from click import prompt
+import requests
 import math
 import os
 import subprocess
@@ -84,61 +86,41 @@ def build_failed_provider_run(provider: str, details: str, response: str = "") -
     )
 
 
-def run_go_for_provider(prompt: str, provider: str) -> ProviderRun:
-    env = dict(os.environ)
-    env["LLM_PROVIDER"] = provider
-    display_name = "CLOD" if provider == "clod" else "OpenRouter"
+def run_llm_service(prompt: str, provider: str) -> ProviderRun:
+    import requests
+    import time
 
-    print(f"[{display_name}] Starting provider run...")
+    url = "http://127.0.0.1:8000/chat"
 
-    before_count = len(read_json_array(LLM_LOG_PATH))
-    completed = subprocess.run(
-        ["go", "run", "."],
-        input=f"{prompt}\nexit\n",
-        cwd=PROJECT_ROOT,
-        env=env,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
+    payload = {
+        "messages": [
+            {"role": "user", "content": prompt}
+        ],
+        "provider": provider
+    }
 
-    if completed.returncode != 0:
-        stderr = completed.stderr.strip()
-        stdout = completed.stdout.strip()
-        details = stderr or stdout or f"go run exited with code {completed.returncode}"
-        print(f"[{display_name}] Failed.")
-        return build_failed_provider_run(provider, details, extract_response(stdout))
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_JWT"
+    }
 
-    log_entries = read_json_array(LLM_LOG_PATH)
-    if len(log_entries) <= before_count:
-        stderr = completed.stderr.strip()
-        stdout = completed.stdout.strip()
-        details = stderr or stdout or f"No new llm_logs.json entry was written for provider {provider}."
-        print(f"[{display_name}] Failed before logging.")
-        return build_failed_provider_run(provider, details, extract_response(stdout))
+    start = time.time()
+    response = requests.post(url, json=payload, headers=headers)
+    latency = int((time.time() - start) * 1000)
 
-    response = extract_response(completed.stdout)
-    if not response:
-        print(f"[{display_name}] Completed without a captured response.")
-        response = f"{provider} completed without a captured response."
+    if response.status_code != 200:
+        return build_failed_provider_run(provider, response.text)
 
-    log_entry = log_entries[-1]
-    print(
-        f"[{display_name}] Completed. "
-        f"latency={log_entry['llm_latency_ms']} ms, "
-        f"input_tokens={log_entry.get('llm_input_tokens', 0)}, "
-        f"output_tokens={log_entry.get('llm_output_tokens', 0)}, "
-        f"success={str(log_entry['llm_success']).lower()}"
-    )
+    data = response.json()
+
     return ProviderRun(
-        llm_provider=log_entry.get("llm_provider", ""),
-        llm_latency_ms=log_entry.get("llm_latency_ms", 0),
-        llm_input_tokens=log_entry.get("llm_input_tokens", 0),
-        llm_output_tokens=log_entry.get("llm_output_tokens", 0),
-        llm_success=log_entry.get("llm_success", False),
-        response=response,
+        llm_provider=provider,
+        llm_latency_ms=data.get("usage", {}).get("llm_latency_ms", latency),
+        llm_input_tokens=data.get("usage", {}).get("llm_input_tokens", 0),
+        llm_output_tokens=data.get("usage", {}).get("llm_output_tokens", 0),
+        llm_success=True,
+        response=data["message"]["content"],
         provider_name=provider,
-        llm_cost_usd=log_entry.get("llm_cost_usd"),
     )
 
 
@@ -294,8 +276,8 @@ def run_batch(prompts_path: Path) -> dict:
     for index, prompt in enumerate(prompts, start=1):
         print()
         print(f"[Batch {batch_id}] Prompt {index}/{len(prompts)}: {prompt}")
-        clod_result = run_go_for_provider(prompt, "clod")
-        openrouter_result = run_go_for_provider(prompt, "openrouter")
+        clod_result = run_llm_service(prompt, "clod")
+        openrouter_result = run_llm_service(prompt, "openrouter")
         comparisons.append(log_comparison(prompt, clod_result, openrouter_result))
 
     summary = build_batch_summary(batch_id, len(prompts), comparisons)
