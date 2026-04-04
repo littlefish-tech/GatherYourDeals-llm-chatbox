@@ -227,7 +227,7 @@ func callProvider(prompt string, cfg providerConfig) (*LLMLogEntry, error) {
 	// - try the primary model with retry
 	// - optionally fall back to a second model on repeated 429s
 	apiKey := strings.TrimSpace(os.Getenv(cfg.APIKeyEnv))
-	fmt.Println("ENV CHECK:", cfg.APIKeyEnv, "=", os.Getenv(cfg.APIKeyEnv))
+
 	if apiKey == "" {
 		return nil, fmt.Errorf("%s is not set", cfg.APIKeyEnv)
 	}
