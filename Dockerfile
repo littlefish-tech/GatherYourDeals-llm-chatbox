@@ -1,13 +1,20 @@
-FROM golang:1.23 AS builder
-WORKDIR /app
+FROM golang:1.22-alpine  AS build
+RUN apk add --no-cache git
 
+WORKDIR /app
 COPY go.mod ./
-COPY . .
-RUN go build -o server main.go
+RUN go mod download
 
-FROM debian:bookworm-slim
+COPY . .
+# disable cgo, target linux, static link
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -ldflags="-s -w" -o server .
+
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates
+
 WORKDIR /app
-COPY --from=builder /app/server /app/server
+COPY --from=build /app/server .
 
 EXPOSE 8000
-CMD ["/app/server"]
+ENTRYPOINT ["./server"]
