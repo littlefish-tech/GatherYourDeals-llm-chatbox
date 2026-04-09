@@ -133,10 +133,11 @@ func HandleChat(req ChatRequest, authHeader string) (ChatResponse, error) {
 
 func fetchReceipts(authHeader string) (string, error) {
 	maxReceiptItems := getMaxReceiptItems()
-	receiptsURL, err := url.Parse("https://gatheryourdeals-data-production.up.railway.app/api/v1/receipts")
+	receiptsBaseURL, err := url.Parse(getReceiptsAPIBaseURL())
 	if err != nil {
 		return "", err
 	}
+	receiptsURL := receiptsBaseURL.JoinPath("receipts")
 	query := receiptsURL.Query()
 	query.Set("limit", strconv.Itoa(maxReceiptItems))
 	query.Set("offset", "0")
@@ -195,6 +196,15 @@ func fetchReceipts(authHeader string) (string, error) {
 	}
 
 	return strings.Join(lines, "\n"), nil
+}
+
+func getReceiptsAPIBaseURL() string {
+	rawValue := strings.TrimSpace(os.Getenv("RECEIPTS_API_BASE_URL"))
+	if rawValue == "" {
+		return "https://gatheryourdeals-data-production.up.railway.app/api/v1"
+	}
+
+	return rawValue
 }
 
 func getMaxReceiptItems() int {

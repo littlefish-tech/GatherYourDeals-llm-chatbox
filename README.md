@@ -41,6 +41,20 @@ export CLOD_API_KEY=...
 export CLOD_MODEL='your-model-id'
 ```
 
+Receipts API:
+
+```
+export RECEIPTS_API_BASE_URL='gatherYourDeals config'
+```
+
+For example:
+
+```
+export RECEIPTS_API_BASE_URL='https://gatheryourdeals-data-production.up.railway.app/api/v1'
+```
+
+The service appends `/receipts` to `RECEIPTS_API_BASE_URL`. If the env var is not set, it falls back to the current production API base URL.
+
 The application uses MAX_RECEIPT_ITEMS in `utils/llm_service.go`. If the env var is missing, empty, non-numeric, or <= 0, it falls back to 100.
 
 To set it in your terminal before running the service:
@@ -70,7 +84,7 @@ In another termial, run:
 ```
 curl -X POST http://localhost:8000/chat \
  -H "Content-Type: application/json" \
- -H "Authorization: Bearer test_token" \
+ -H "Authorization: Bearer $JWT" \
  -d '{
 "messages": [
 {"role": "user", "content": "What did I buy recently?"}
