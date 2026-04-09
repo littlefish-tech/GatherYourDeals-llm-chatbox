@@ -22,6 +22,14 @@ export OPENROUTER_API_KEY=your_openrouter_key
 export CLOD_API_KEY=your_clod_key
 ```
 
+The application uses MAX_RECEIPT_ITEMS in `utils/llm_service.go`. If the env var is missing, empty, non-numeric, or <= 0, it falls back to 100.
+
+To set it in your terminal before running the service:
+
+```
+export MAX_RECEIPT_ITEMS=100
+```
+
 ### Run the backend service
 
 ```
