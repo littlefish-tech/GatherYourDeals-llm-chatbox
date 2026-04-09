@@ -18,8 +18,27 @@ cd <your-project-folder>
 In the termial run:
 
 ```
+
 export OPENROUTER_API_KEY=your_openrouter_key
 export CLOD_API_KEY=your_clod_key
+```
+
+Select a provider:
+
+OpenRouter:
+
+```
+export LLM_PROVIDER=openrouter
+export OPENROUTER_API_KEY=...
+export OPENROUTER_MODEL='model-id'
+```
+
+CLOD:
+
+```
+export LLM_PROVIDER=clod
+export CLOD_API_KEY=...
+export CLOD_MODEL='your-model-id'
 ```
 
 The application uses MAX_RECEIPT_ITEMS in `utils/llm_service.go`. If the env var is missing, empty, non-numeric, or <= 0, it falls back to 100.
@@ -55,8 +74,7 @@ curl -X POST http://localhost:8000/chat \
  -d '{
 "messages": [
 {"role": "user", "content": "What did I buy recently?"}
-],
-"provider": "openrouter"
+]
 }'
 ```
 

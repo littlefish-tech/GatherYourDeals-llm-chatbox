@@ -21,7 +21,6 @@ type ChatRequest struct {
 		Role    string `json:"role"`
 		Content string `json:"content"`
 	} `json:"messages"`
-	Provider string `json:"provider"`
 }
 
 type Usage struct {
@@ -84,11 +83,6 @@ func HandleChat(req ChatRequest, authHeader string) (ChatResponse, error) {
 	%s
 	`, context, userQuestion)
 
-	provider := req.Provider
-	if provider != "" {
-		os.Setenv("LLM_PROVIDER", provider)
-	}
-
 	// ---------------------------
 	// INIT RESPONSE
 	// ---------------------------
@@ -98,7 +92,7 @@ func HandleChat(req ChatRequest, authHeader string) (ChatResponse, error) {
 	// ---------------------------
 	// COMPARISON MODE
 	// ---------------------------
-	if provider == "both" {
+	if ActiveProvider() == "both" {
 		comp, err := CallBothProviders(prompt)
 		if err != nil {
 			response.StopReason = "error"
