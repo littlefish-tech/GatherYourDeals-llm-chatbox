@@ -22,7 +22,7 @@ const (
 	// Base URL: https://api.clod.io
 	// Endpoint: /v1/chat/completions
 	clodURL                        = "https://api.clod.io/v1/chat/completions"
-	defaultOpenRouterModel         = "anthropic/claude-opus-4.6-fast"
+	defaultOpenRouterModel         = "qwen/qwen3-235b-a22b-2507"
 	defaultOpenRouterFallbackModel = "deepseek/deepseek-chat-v3-0324:free"
 	// This is a local project default, not a documented CLOD platform default.
 	defaultClodModel         = "Qwen 3 235B A22B Instruct 2507 TPUT"
@@ -52,7 +52,7 @@ type LLMComparisonResult struct {
 type chatCompletionRequest struct {
 	Model       string              `json:"model"`
 	Messages    []map[string]string `json:"messages"`
-	MaxTokens   int                 `json:"max_tokens,omitempty"`
+	// MaxTokens   int                 `json:"max_tokens,omitempty"`
 	Temperature float64             `json:"temperature,omitempty"`
 }
 
@@ -328,7 +328,7 @@ func callChatCompletion(prompt, model, apiKey string, messages []map[string]stri
 	// The provider-specific differences are injected through providerConfig.
 	requestBody := chatCompletionRequest{
 		Model:       model,
-		MaxTokens:   300,
+		// MaxTokens:   300,
 		Temperature: 0.2,
 		Messages:    messages,
 	}

@@ -192,8 +192,9 @@ func fetchReceipts(authHeader string) (string, error) {
 		name := m["productName"]
 		price := m["price"]
 		storeName := m["storeName"]
+		purchaseDate := m["purchaseDate"]
 
-		lines = append(lines, fmt.Sprintf("%v - %v - %v", name, price, storeName))
+		lines = append(lines, fmt.Sprintf("%v - %v - %v - %v", name, price, storeName, purchaseDate))
 	}
 
 	return strings.Join(lines, "\n"), nil
