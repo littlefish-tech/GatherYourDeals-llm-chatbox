@@ -1,0 +1,67 @@
+# Correctness prompts for local JSON receipt testing.
+# These are intended for RECEIPTS_SOURCE=local, not end-to-end ETL testing.
+
+# Simple cheapest-item lookup
+Which store has the lowest price for milk?
+Which store has the lowest price for carrots?
+Where can I find the cheapest eggs?
+What is the best price for bananas?
+Which store has the lowest price for apples?
+Which store has the lowest price for tomatoes?
+Which store has the lowest price for cauliflower?
+Which store has the best price for lotus root?
+Which grapes are cheaper, green grapes or red grapes?
+Which store has the cheapest soup?
+
+# Deal check against a proposed price
+15.99USD milk per box, do I have cheaper purchase history?
+3.55 USD per lb for carrot, do I have cheaper purchase history?
+10.55 USD for 3 dozen eggs, do I have cheaper purchase history?
+$7.99 USD for bread, any better deal in the purchase history?
+$9.39 USD for sausage, any better deal in the purchase history?
+$4.50 USD for garlic, do I have a cheaper purchase history?
+$12.00 USD for potatoes, do I have a cheaper purchase history?
+$6.00 USD for red pomelo, do I have a cheaper purchase history?
+$2.50 USD for Campbell's soup, do I have a cheaper purchase history?
+$12.00 USD for cream cheese, do I have a cheaper purchase history?
+
+# Comparison across receipt records
+Compare milk prices and recommend the cheaper store.
+Compare egg prices across stores and tell me the lowest option.
+Compare apple prices and tell me the cheapest store.
+Compare bread prices and recommend where I should buy it.
+Compare green grapes and red grapes. Which one is cheaper?
+Compare the tilapia records and tell me the lowest price.
+Compare Costco milk records and tell me which milk item is cheapest.
+Compare the tomato and carrot prices by weight and explain which has the lower unit price.
+
+# Multi-item recommendations
+Which store offers the best value for buying milk and eggs together?
+I want to buy apples and bananas. Which store should I choose based on price?
+I want to buy tomatoes and carrots. Which store should I choose?
+I want to buy grapes and eggs. Which store or stores should I choose?
+I need milk, bananas, and bread. Which store has the best supported option from my history?
+
+# Unit conversion and budget questions
+If I want to buy 3 lbs of tomatoes, which store should I go to for the best deal and how much will I pay?
+My budget is 5 dollars. What is the maximum amount of lotus root I can buy with this budget?
+How much would 2 kg of carrots cost based on my purchase history?
+What is the unit price per kg for cauliflower based on my receipt history?
+What is the unit price per kg for tomatoes based on my receipt history?
+What is the unit price per kg for lotus root based on my receipt history?
+
+# Missing-item / hallucination checks
+Which store has the lowest price for rice?
+Which store has the cheapest orange juice?
+Where should I buy yogurt for the lowest price?
+What is the cheapest price for dragon fruit?
+Which store has the lowest price for saffron?
+Do I have any purchase history for cereal?
+Do I have any purchase history for chicken breast?
+Do I have any purchase history for coffee?
+
+# Currency and recency caveats
+Is 15.99 USD for milk cheaper than all of my purchase history, including CAD records?
+Should I treat the 3.04 CAD milk record as directly comparable to 15.99 USD milk?
+Which bread record is cheapest if I only compare USD prices?
+Which bread record is cheapest if I allow CAD records too?

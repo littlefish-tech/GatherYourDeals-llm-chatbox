@@ -1,0 +1,44 @@
+# Additional correctness edge-case prompts for local JSON receipt testing.
+# Use these after correctness_prompts.txt when you want stronger evidence around
+# hallucination, close product matching, currency caveats, units, and partial bundles.
+
+# Exact no-match tests
+Do I have any purchase history for coffee?
+Do I have any purchase history for yogurt?
+Do I have any purchase history for rice?
+Do I have any purchase history for orange juice?
+
+# Close-but-not-same product tests
+Can I use orange chicken as evidence for orange juice prices?
+Can I use chicken balls as evidence for chicken breast prices?
+Can I use granola as evidence for cereal prices?
+Can I use croissants as evidence for bread prices?
+Can I use lactose-free milk as evidence for regular whole milk prices?
+
+# Currency caveat tests
+What is the cheapest milk if I only compare USD prices?
+What is the cheapest milk if I include CAD records too?
+Should I compare 3.04CAD milk directly against 15.99USD milk?
+Which bread record is cheapest if I only compare USD prices?
+Which bread record is cheapest if I include CAD records too?
+
+# Unit conversion tests
+What is the price per kg for carrots?
+What is the price per kg for tomatoes?
+Which is cheaper per kg, carrots or tomatoes?
+How much would 1 kg of lotus root cost?
+What is the price per pound for tomatoes based on my purchase history?
+
+# Recency versus cheapest tests
+What is the cheapest bread record overall?
+What is the cheapest recent USD bread record?
+Should I prefer the older CAD bread record over the newer Costco bread record?
+What is the cheapest milk record overall?
+What is the cheapest recent USD milk record?
+
+# Bundle tests with partial or missing data
+I need milk, rice, and eggs. Which store should I choose?
+I need yogurt and bananas. Which store should I choose?
+I need coffee, bread, and apples. Which store should I choose?
+I need orange juice and tomatoes. Which store should I choose?
+I need cereal and milk. Which store should I choose?
