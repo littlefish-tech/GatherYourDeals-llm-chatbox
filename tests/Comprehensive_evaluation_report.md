@@ -2,14 +2,6 @@
 
 This report combines the sequential LLM evaluation results and the Locust concurrent load-test results Together, these experiments evaluate the receipt-aware grocery price comparison assistant across answer quality, safety, provider cost, latency, output completeness, and light concurrent runtime behavior.
 
-## Executive Summary
-
-The evaluation shows that both CLOD and OpenRouter can support a receipt-grounded grocery price comparison assistant with high correctness and strong red-team safety. In sequential correctness tests, both providers reached strong average scores, and the April 14 paired run improved correctness pass rate to 95.0%. In red-team tests, neither provider produced an outright failure.
-
-OpenRouter had the stronger cost-performance profile. It matched or slightly exceeded CLOD on answer quality while costing about half as much in the large-context workloads. CLOD, however, showed some operational advantages: in the April 13 raw outputs, OpenRouter missed two saved responses while CLOD had complete saved rows, and in the Locust load test CLOD had more stable tail latency at 5 and 8 users.
-
-The strongest system-level conclusion is architectural: sending full receipt history to the LLM is expensive and slow. The April 14 sequential run used about 123k input tokens per request, and the Locust test showed average end-to-end latency around 16-20 seconds even under light concurrency. Future work should add retrieval or pre-filtering so the backend sends only relevant receipt records to the LLM.
-
 ## Experiments Covered
 
 | Experiment                   | Purpose                                                            |
